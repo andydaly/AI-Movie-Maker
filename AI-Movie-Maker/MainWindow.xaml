@@ -1,0 +1,47 @@
+﻿<Window x:Class="AI_Movie_Maker.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:AI_Movie_Maker"
+        mc:Ignorable="d"
+        Title="Ai Movie Maker" Width="1400" Height="800">
+    <Grid Margin="10">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+
+            <!-- Controls -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,10">
+                <!-- Prompt Input -->
+                <TextBox x:Name="PromptBox" Width="600" Margin="5,0"
+                    Text="Enter video prompt"
+                    Foreground="Gray"
+                    GotFocus="PromptBox_GotFocus"
+                    LostFocus="PromptBox_LostFocus"/>
+                <StackPanel Orientation="Vertical" Margin="10,5,0,10">
+                    <TextBlock Text="Output Resolution:" FontWeight="Bold" Margin="0,10,0,5"/>
+                    <StackPanel x:Name="ResolutionPanel" Orientation="Horizontal">
+                        <RadioButton Content="1280x720" Tag="1280x720" IsChecked="True" Margin="5"/>
+                        <RadioButton Content="720x1280" Tag="720x1280" Margin="5"/>
+                    </StackPanel>
+                </StackPanel>
+                <!-- "Number of Scenes" label -->
+                <TextBlock Text="Number of Scenes" VerticalAlignment="Center" Margin="10,0"/>
+                
+                <!-- Decrease / Text / Increase -->
+                <Button Content="▼" Width="30" Margin="5,0" Click="Decrease_Click"/>
+                <TextBox x:Name="NumberBox" Width="50" Text="1" TextAlignment="Center" IsReadOnly="True" Margin="5,0"/>
+                <Button Content="▲" Width="30" Margin="5,0" Click="Increase_Click"/>
+
+                <!-- Generate button -->
+                <Button Content="Generate Scenes" Margin="10,0,0,0" Click="Generate_Click"/>
+            </StackPanel>
+
+            <!-- Scene Tabs -->
+            <TabControl x:Name="ScenesTabControl" Grid.Row="1" Margin="20"/>
+        </Grid>
+    </Grid>
+</Window>

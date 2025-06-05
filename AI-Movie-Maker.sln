@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.14.36119.2 d17.14
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AI-Movie-Maker", "AI-Movie-Maker\AI-Movie-Maker.csproj", "{8540B81D-1683-4463-9234-9D288A52030B}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AI-Actions", "AI-Actions\AI-Actions.csproj", "{C1146C1E-08D3-42CB-82F0-6B03F3446AF5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8540B81D-1683-4463-9234-9D288A52030B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8540B81D-1683-4463-9234-9D288A52030B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8540B81D-1683-4463-9234-9D288A52030B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8540B81D-1683-4463-9234-9D288A52030B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C1146C1E-08D3-42CB-82F0-6B03F3446AF5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1146C1E-08D3-42CB-82F0-6B03F3446AF5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1146C1E-08D3-42CB-82F0-6B03F3446AF5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1146C1E-08D3-42CB-82F0-6B03F3446AF5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {0023740F-3102-4299-9442-21C4F071EDF2}
+	EndGlobalSection
+EndGlobal
