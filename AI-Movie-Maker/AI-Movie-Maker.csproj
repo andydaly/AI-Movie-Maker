@@ -19,6 +19,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="media\loadingicon.mp4">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>

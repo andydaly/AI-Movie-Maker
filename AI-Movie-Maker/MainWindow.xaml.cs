@@ -1,6 +1,7 @@
 ﻿using AI_Actions;
 using Microsoft.Extensions.Configuration;
 using System.Configuration;
+using System.IO;
 using System.Text;
 using System.Windows;
 using System.Windows.Controls;
@@ -80,27 +81,9 @@ namespace AI_Movie_Maker
 
             if (int.TryParse(NumberBox.Text, out int sceneCount) && !string.IsNullOrWhiteSpace(textPrompt))
             {
-                string selectedRes = ((RadioButton)ResolutionPanel.Children
-                .OfType<RadioButton>()
-                .FirstOrDefault(rb => rb.IsChecked == true))?.Tag?.ToString() ?? "1280x720";
-
-                int outputWidth = 1280, outputHeight = 720;
-                int mediaWidth = 960, mediaHeight = 540;
-                string loadingPath = System.IO.Path.GetFullPath("media/loadingicon.mp4");
-                if (selectedRes == "720x1280")
-                {
-                    outputWidth = 720;
-                    outputHeight = 1280;
-                    mediaWidth = 280;
-                    mediaHeight = 700;
-                    loadingPath = System.IO.Path.GetFullPath("media/loadingicon2.mp4");
-                }
-
-
-                // Call your AI generation method
-                List<string> AIScenes = AIPrompts.GenerateScenes(textPrompt, sceneCount);
-
                 ScenesTabControl.Items.Clear();
+
+                List<string> AIScenes = AIPrompts.GenerateScenes(textPrompt, sceneCount);
 
                 for (int i = 0; i < sceneCount; i++)
                 {
@@ -108,10 +91,8 @@ namespace AI_Movie_Maker
                         ? AIScenes[i]
                         : $"[Scene {i + 1} text missing]";
 
-                    // Define scene index for closure safety
                     int sceneIndex = i;
 
-                    // Scene TextBox
                     var sceneTextBox = new TextBox
                     {
                         Text = sceneText,
@@ -122,26 +103,7 @@ namespace AI_Movie_Maker
                         MinHeight = 100,
                         MaxHeight = 200
                     };
-                    
 
-                    var mediaPlayer = new MediaElement
-                    {
-                        Width = mediaWidth,
-                        Height = mediaHeight,
-                        LoadedBehavior = MediaState.Manual,
-                        UnloadedBehavior = MediaState.Stop,
-                        Margin = new Thickness(1),
-                        VerticalAlignment = VerticalAlignment.Top
-                    };
-
-                    // Looping behavior
-                    mediaPlayer.MediaEnded += (s, e) =>
-                    {
-                        mediaPlayer.Position = TimeSpan.Zero;
-                        mediaPlayer.Play();
-                    };
-
-                    // Generate button
                     var generateButton = new Button
                     {
                         Content = "Generate Video",
@@ -150,38 +112,84 @@ namespace AI_Movie_Maker
                         HorizontalAlignment = HorizontalAlignment.Right
                     };
 
-                    // Handle Generate button click
+                    var downloadButton = new Button
+                    {
+                        Content = "Download Video",
+                        Margin = new Thickness(5),
+                        Padding = new Thickness(10, 5, 10, 5),
+                        HorizontalAlignment = HorizontalAlignment.Right,
+                        IsEnabled = false
+                    };
+
+                    var mediaPlayer = new MediaElement
+                    {
+                        Width = 960,
+                        Height = 540,
+                        LoadedBehavior = MediaState.Manual,
+                        UnloadedBehavior = MediaState.Stop,
+                        Margin = new Thickness(1),
+                        VerticalAlignment = VerticalAlignment.Top
+                    };
+
+                    mediaPlayer.MediaEnded += (s, eArgs) =>
+                    {
+                        mediaPlayer.Position = TimeSpan.Zero;
+                        mediaPlayer.Play();
+                    };
+
+                    string videoPath = null;
+
                     generateButton.Click += async (s, eArgs) =>
                     {
                         string prompt = sceneTextBox.Text;
                         string filename = "scene_video_";
-                        int videoLength = 10; // seconds or however you define it
+                        int videoLength = 10;
+
+                        string selectedRes = ((RadioButton)ResolutionPanel.Children
+                            .OfType<RadioButton>()
+                            .FirstOrDefault(rb => rb.IsChecked == true))?.Tag?.ToString() ?? "1280x720";
+
+                        int outputWidth = 1280, outputHeight = 720;
+                        int mediaWidth = 960, mediaHeight = 540;
+                        string loadingPath = System.IO.Path.GetFullPath("media/loadingicon.mp4");
+
+                        if (selectedRes == "720x1280")
+                        {
+                            outputWidth = 720;
+                            outputHeight = 1280;
+                            mediaWidth = 280;
+                            mediaHeight = 700;
+                            loadingPath = System.IO.Path.GetFullPath("media/loadingicon2.mp4");
+                        }
+
+                        mediaPlayer.Width = mediaWidth;
+                        mediaPlayer.Height = mediaHeight;
 
                         generateButton.IsEnabled = false;
                         generateButton.Content = "Generating...";
+                        downloadButton.IsEnabled = false;
 
                         try
                         {
-                            // Show loading video first
-                            
                             if (System.IO.File.Exists(loadingPath))
                             {
                                 mediaPlayer.Source = new Uri(loadingPath, UriKind.Absolute);
                                 mediaPlayer.Play();
                             }
 
-                            // Await the actual video generation
-                            string videoPath = await AIVideoGenerator.GenerateVideoAsync(
+                            videoPath = await AIVideoGenerator.GenerateVideoAsync(
                                 prompt,
                                 filename + (sceneIndex + 1),
                                 videoLength,
                                 outputWidth,
                                 outputHeight
                             );
+
                             if (!string.IsNullOrEmpty(videoPath) && System.IO.File.Exists(videoPath))
                             {
                                 mediaPlayer.Source = new Uri(videoPath, UriKind.Absolute);
                                 mediaPlayer.Play();
+                                downloadButton.IsEnabled = true;
                             }
                         }
                         catch (Exception ex)
@@ -195,28 +203,82 @@ namespace AI_Movie_Maker
                         }
                     };
 
-                    // Top row: scene TextBox + Generate button
-                    var topPanel = new DockPanel();
-                    DockPanel.SetDock(generateButton, Dock.Right);
-                    topPanel.Children.Add(generateButton);
-                    topPanel.Children.Add(sceneTextBox);
+                    downloadButton.Click += (s, eArgs) =>
+                    {
+                        if (!string.IsNullOrEmpty(videoPath) && System.IO.File.Exists(videoPath))
+                        {
+                            var dlg = new Microsoft.Win32.SaveFileDialog
+                            {
+                                FileName = System.IO.Path.GetFileName(videoPath),
+                                Filter = "MP4 files (*.mp4)|*.mp4|All files (*.*)|*.*"
+                            };
 
-                    // Stack the full layout vertically
+                            if (dlg.ShowDialog() == true)
+                            {
+                                File.Copy(videoPath, dlg.FileName, overwrite: true);
+                                MessageBox.Show("Video downloaded successfully.");
+                            }
+                        }
+                    };
+
+                    var topGrid = new Grid
+                    {
+                        Margin = new Thickness(5)
+                    };
+
+                    topGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                    topGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    topGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+                    Grid.SetColumn(sceneTextBox, 0);
+                    topGrid.Children.Add(sceneTextBox);
+
+                    Grid.SetColumn(generateButton, 1);
+                    topGrid.Children.Add(generateButton);
+
+                    Grid.SetColumn(downloadButton, 2);
+                    topGrid.Children.Add(downloadButton);
+
+
                     var container = new StackPanel();
-                    container.Children.Add(topPanel);
+                    container.Children.Add(topGrid);
                     container.Children.Add(mediaPlayer);
 
-                    // Tab item with content
+                    var headerPanel = new DockPanel { Margin = new Thickness(0, 0, 5, 0) };
+
+                    var headerLabel = new Label
+                    {
+                        Content = $"Scene {i + 1}",
+                        VerticalAlignment = VerticalAlignment.Center
+                    };
+
+                    var closeButton = new Button
+                    {
+                        Content = "✖",
+                        Padding = new Thickness(3, 0, 3, 0),
+                        Margin = new Thickness(5, 0, 0, 0),
+                        VerticalAlignment = VerticalAlignment.Center,
+                        HorizontalAlignment = HorizontalAlignment.Right
+                    };
+
                     var tab = new TabItem
                     {
-                        Header = $"Scene {i + 1}",
                         Content = container
                     };
+
+                    closeButton.Click += (s, e) =>
+                    {
+                        ScenesTabControl.Items.Remove(tab);
+                        RenumberSceneTabs();
+                    };
+
+                    headerPanel.Children.Add(headerLabel);
+                    headerPanel.Children.Add(closeButton);
+                    tab.Header = headerPanel;
 
                     ScenesTabControl.Items.Add(tab);
                 }
 
-                // Auto-select first tab
                 if (ScenesTabControl.Items.Count > 0)
                 {
                     ScenesTabControl.SelectedIndex = 0;
@@ -225,6 +287,25 @@ namespace AI_Movie_Maker
             else
             {
                 MessageBox.Show("Please enter a valid prompt and scene count.");
+            }
+        }
+
+
+        private void RenumberSceneTabs()
+        {
+            for (int i = 0; i < ScenesTabControl.Items.Count; i++)
+            {
+                if (ScenesTabControl.Items[i] is TabItem tabItem &&
+                    tabItem.Header is DockPanel panel)
+                {
+                    var label = panel.Children.OfType<Label>().FirstOrDefault();
+                    if (label != null)
+                    {
+                        label.Content = $"Scene {i + 1}";
+                    }
+
+                    // Optionally update sceneIndex references or filenames stored in Tag or Name
+                }
             }
         }
     }

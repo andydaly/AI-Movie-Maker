@@ -10,6 +10,7 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
@@ -17,20 +18,14 @@
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,20,0,10">
                 <!-- Prompt Input -->
                 <TextBox x:Name="PromptBox" Width="600" Margin="5,0"
-                    Text="Enter video prompt"
-                    Foreground="Gray"
-                    GotFocus="PromptBox_GotFocus"
-                    LostFocus="PromptBox_LostFocus"/>
-                <StackPanel Orientation="Vertical" Margin="10,5,0,10">
-                    <TextBlock Text="Output Resolution:" FontWeight="Bold" Margin="0,10,0,5"/>
-                    <StackPanel x:Name="ResolutionPanel" Orientation="Horizontal">
-                        <RadioButton Content="1280x720" Tag="1280x720" IsChecked="True" Margin="5"/>
-                        <RadioButton Content="720x1280" Tag="720x1280" Margin="5"/>
-                    </StackPanel>
-                </StackPanel>
+                         Text="Enter video prompt"
+                         Foreground="Gray"
+                         GotFocus="PromptBox_GotFocus"
+                         LostFocus="PromptBox_LostFocus"/>
+
                 <!-- "Number of Scenes" label -->
                 <TextBlock Text="Number of Scenes" VerticalAlignment="Center" Margin="10,0"/>
-                
+
                 <!-- Decrease / Text / Increase -->
                 <Button Content="▼" Width="30" Margin="5,0" Click="Decrease_Click"/>
                 <TextBox x:Name="NumberBox" Width="50" Text="1" TextAlignment="Center" IsReadOnly="True" Margin="5,0"/>
@@ -40,8 +35,15 @@
                 <Button Content="Generate Scenes" Margin="10,0,0,0" Click="Generate_Click"/>
             </StackPanel>
 
+            <!-- Output Resolution Panel -->
+            <StackPanel x:Name="ResolutionPanel" Orientation="Horizontal" Grid.Row="1" HorizontalAlignment="Center" Margin="0,0,0,10">
+                <TextBlock Text="Output Resolution:" VerticalAlignment="Center" Margin="5"/>
+                <RadioButton Content="1280x720" Tag="1280x720" IsChecked="True" Margin="10,0"/>
+                <RadioButton Content="720x1280" Tag="720x1280" Margin="10,0"/>
+            </StackPanel>
+
             <!-- Scene Tabs -->
-            <TabControl x:Name="ScenesTabControl" Grid.Row="1" Margin="20"/>
+            <TabControl x:Name="ScenesTabControl" Grid.Row="2" Margin="20"/>
         </Grid>
     </Grid>
 </Window>
