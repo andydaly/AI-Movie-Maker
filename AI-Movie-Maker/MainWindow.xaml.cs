@@ -560,7 +560,7 @@ namespace AI_Movie_Maker
                 {
                     var label = headerPanel.Children.OfType<Label>().FirstOrDefault();
                     if (label != null)
-                        label.Content = $"Scene {sceneIndex}";
+                        label.Content = $"Scene {sceneIndex + 1}";
                 }
             }
         }
@@ -613,7 +613,23 @@ namespace AI_Movie_Maker
 
         private int GetNextSceneIndex()
         {
-            return nextSceneIndex++;
+            var usedIndices = ScenesTabControl.Items
+                .OfType<TabItem>()
+                .Where(tab =>
+                    tab.Tag is int &&
+                    !(tab.Header is DockPanel dp &&
+                      dp.Children.OfType<Label>().FirstOrDefault()?.Content?.ToString() == "Full Video") &&
+                    !(tab.Header is Button btn && btn.Content?.ToString() == "+"))
+                .Select(tab => (int)tab.Tag)
+                .ToHashSet();
+
+            for (int i = 0; i < 100; i++)
+            {
+                if (!usedIndices.Contains(i))
+                    return i;
+            }
+
+            throw new InvalidOperationException("Too many scene tabs.");
         }
     }
 }
