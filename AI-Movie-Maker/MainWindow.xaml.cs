@@ -1,5 +1,6 @@
 ﻿using AI_Actions;
 using Microsoft.Extensions.Configuration;
+using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using System.Windows.Controls;
@@ -15,6 +16,10 @@ namespace AI_Movie_Maker
         AITextGenerator AITextGenerator;
         AIVideoGenerator AIVideoGenerator;
         AIPrompts AIPrompts;
+        private Dictionary<int, bool> tabHasVideo = new();
+        private Dictionary<TabItem, string> tabToVideoPath = new(); // Map tab to its video file
+        private TabItem fullVideoTab = null;
+        private int nextSceneIndex = 1;
 
         public MainWindow()
         {
@@ -137,12 +142,139 @@ namespace AI_Movie_Maker
             RefreshPlusButtonVisibility();
         }
 
+        private async void PreviewFullVideoButton_Click(object sender, RoutedEventArgs e)
+        {
+            PreviewFullVideoButton.IsEnabled = false;
+
+            // Check if Full Video tab is already open
+            var existingTab = ScenesTabControl.Items
+                .OfType<TabItem>()
+                .FirstOrDefault(t => t.Header is DockPanel dp &&
+                                     dp.Children.OfType<Label>().FirstOrDefault()?.Content?.ToString() == "Full Video");
+
+            if (existingTab != null)
+            {
+                ScenesTabControl.SelectedItem = existingTab;
+                return;
+            }
+
+            // Get all video paths and ensure resolutions match
+            var videoPaths = new List<string>();
+            int? referenceWidth = null, referenceHeight = null;
+            string selectedRes = ((RadioButton)ResolutionPanel.Children
+                .OfType<RadioButton>()
+                .FirstOrDefault(rb => rb.IsChecked == true))?.Tag?.ToString() ?? "1280x720";
+
+            (referenceWidth, referenceHeight) = selectedRes == "720x1280" ? (280, 700) : (960, 540);
+
+            foreach (var kv in tabToVideoPath)
+            {
+                if (!File.Exists(kv.Value))
+                {
+                    MessageBox.Show("One or more video files are missing.");
+                    return;
+                }
+
+                videoPaths.Add(kv.Value);
+            }
+
+            if (videoPaths.Count < 2)
+            {
+                MessageBox.Show("You need at least two videos to preview the full video.");
+                return;
+            }
+
+            string outputFilePath = Path.Combine(Path.GetTempPath(), "combined_full_video.mp4");
+
+            try
+            {
+                await CombineVideosAsync(videoPaths, outputFilePath);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error combining videos: {ex.Message}");
+                return;
+            }
+
+            var mediaPlayer = new MediaElement
+            {
+                LoadedBehavior = MediaState.Manual,
+                UnloadedBehavior = MediaState.Stop,
+                Source = new Uri(outputFilePath, UriKind.Absolute),
+                Width = referenceWidth.Value,
+                Height = referenceHeight.Value,
+                Margin = new Thickness(5),
+                VerticalAlignment = VerticalAlignment.Top
+            };
+
+            mediaPlayer.Loaded += (s, ev) => { mediaPlayer.Play(); };
+            mediaPlayer.MediaEnded += (s, ev) => { mediaPlayer.Position = TimeSpan.Zero; mediaPlayer.Play(); };
+
+            var downloadButton = new Button
+            {
+                Content = "Download Full Video",
+                Margin = new Thickness(5),
+                Width = 160
+            };
+
+            downloadButton.Click += (s, ev) =>
+            {
+                var dlg = new Microsoft.Win32.SaveFileDialog
+                {
+                    FileName = "full_video.mp4",
+                    Filter = "MP4 files (*.mp4)|*.mp4"
+                };
+
+                if (dlg.ShowDialog() == true)
+                {
+                    File.Copy(outputFilePath, dlg.FileName, overwrite: true);
+                    MessageBox.Show("Full video downloaded successfully.");
+                }
+            };
+
+            var content = new StackPanel();
+            content.Children.Add(mediaPlayer);
+            content.Children.Add(downloadButton);
+
+            var headerPanel = new DockPanel();
+            headerPanel.Children.Add(new Label { Content = "Full Video" });
+
+            var closeButton = new Button
+            {
+                Content = "✖",
+                Padding = new Thickness(3, 0, 3, 0),
+                Margin = new Thickness(5, 0, 0, 0),
+                VerticalAlignment = VerticalAlignment.Center
+            };
+
+            headerPanel.Children.Add(closeButton);
+
+            var fullVideoTab = new TabItem
+            {
+                Header = headerPanel,
+                Content = content
+            };
+
+            closeButton.Click += (s, ev) =>
+            {
+                ScenesTabControl.Items.Remove(fullVideoTab);
+                RefreshPlusButtonVisibility();
+                CheckPreviewButtonStatus();
+            };
+
+            int insertIndex = Math.Max(ScenesTabControl.Items.Count - 1, 0);
+            ScenesTabControl.Items.Insert(insertIndex, fullVideoTab);
+            ScenesTabControl.SelectedItem = fullVideoTab;
+
+            RefreshPlusButtonVisibility();
+        }
+
         private void AddNewSceneTab(string initialText = "")
         {
             if (GetSceneTabCount() >= 10)
                 return;
 
-            int sceneIndex = ScenesTabControl.Items.Count;
+            int sceneIndex = GetNextSceneIndex();
 
             TextBox sceneTextBox = new TextBox
             {
@@ -217,6 +349,7 @@ namespace AI_Movie_Maker
 
 
             string videoPath = null;
+            TabItem tabItem = new TabItem();
 
             generateButton.Click += async (s, e) =>
             {
@@ -227,6 +360,9 @@ namespace AI_Movie_Maker
                 generateButton.IsEnabled = false;
                 generateButton.Content = "Generating...";
                 downloadButton.IsEnabled = false;
+
+                tabHasVideo[sceneIndex] = false;
+                CheckPreviewButtonStatus();
 
                 try
                 {
@@ -248,6 +384,9 @@ namespace AI_Movie_Maker
                         mediaPlayer.Source = new Uri(videoPath, UriKind.Absolute);
                         mediaPlayer.Play();
                         downloadButton.IsEnabled = true;
+                        tabHasVideo[sceneIndex] = true;
+                        tabToVideoPath[tabItem] = videoPath;
+                        CheckPreviewButtonStatus();
                     }
                 }
                 catch (Exception ex)
@@ -302,50 +441,126 @@ namespace AI_Movie_Maker
                 VerticalAlignment = VerticalAlignment.Center
             };
 
-            
-
             headerPanel.Children.Add(closeButton);
 
-            TabItem tabItem = new TabItem
-            {
-                Header = headerPanel,
-                Content = content
-            };
+            tabItem.Header = headerPanel;
+            tabItem.Content = content;
+            tabItem.Tag = sceneIndex; // Store the scene index in the tag for easy retrieval
 
             closeButton.Click += (s, e) =>
             {
+                if (tabItem.Tag is int index)
+                {
+                    tabHasVideo.Remove(index);
+                }
                 ScenesTabControl.Items.Remove(tabItem);
                 RenumberSceneTabs();
                 RefreshPlusButtonVisibility();
+                CheckPreviewButtonStatus();
             };
 
+            ScenesTabControl.Items.Add(tabItem);
+
+            // Handle sorting tabs
             var plusTab = ScenesTabControl.Items
                 .OfType<TabItem>()
                 .FirstOrDefault(tab => tab.Header is Button btn && btn.Content.ToString() == "+");
 
             if (plusTab != null)
-            {
-                int insertIndex = ScenesTabControl.Items.IndexOf(plusTab);
-                ScenesTabControl.Items.Insert(insertIndex, tabItem);
-            }
-            else
-            {
-                ScenesTabControl.Items.Add(tabItem);
-            }
+                ScenesTabControl.Items.Remove(plusTab);
+
+            var sortedSceneTabs = ScenesTabControl.Items
+                .OfType<TabItem>()
+                .Where(t => t.Tag is int)
+                .OrderBy(t => (int)t.Tag)
+                .ToList();
+
+            ScenesTabControl.Items.Clear();
+
+            foreach (var tab in sortedSceneTabs)
+                ScenesTabControl.Items.Add(tab);
+
+            if (plusTab != null)
+                ScenesTabControl.Items.Add(plusTab);
+
             ScenesTabControl.SelectedItem = tabItem;
+
+            tabHasVideo[sceneIndex] = false;
 
             RenumberSceneTabs();
             RefreshPlusButtonVisibility();
+            CheckPreviewButtonStatus();
         }
+
+        public static async Task<string> CombineVideosAsync(List<string> videoPaths, string outputFilePath)
+        {
+            if (videoPaths == null || videoPaths.Count < 2)
+                throw new ArgumentException("At least two videos are required to combine.");
+
+            // Path to bundled ffmpeg.exe
+            string ffmpegPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Tools", "ffmpeg.exe");
+
+            if (!File.Exists(ffmpegPath))
+                throw new FileNotFoundException("ffmpeg.exe not found at: " + ffmpegPath);
+
+            // Ensure the output directory exists
+            Directory.CreateDirectory(Path.GetDirectoryName(outputFilePath));
+
+            // Prepare the temporary file list
+            string tempFileList = Path.GetTempFileName();
+            using (StreamWriter writer = new StreamWriter(tempFileList))
+            {
+                foreach (var path in videoPaths)
+                {
+                    // Escape backslashes and wrap paths in single quotes
+                    writer.WriteLine($"file '{path.Replace("\\", "/")}'");
+                }
+            }
+
+            try
+            {
+                var psi = new ProcessStartInfo
+                {
+                    FileName = ffmpegPath,
+                    Arguments = $"-y -f concat -safe 0 -i \"{tempFileList}\" -c copy \"{outputFilePath}\"",
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    WorkingDirectory = AppDomain.CurrentDomain.BaseDirectory
+                };
+
+                using (var process = new Process { StartInfo = psi })
+                {
+                    process.Start();
+
+                    string errorOutput = await process.StandardError.ReadToEndAsync();
+                    await process.WaitForExitAsync();
+
+                    if (process.ExitCode != 0)
+                        throw new Exception($"ffmpeg exited with code {process.ExitCode}:\n{errorOutput}");
+
+                    return outputFilePath;
+                }
+            }
+            finally
+            {
+                // Clean up the temp file list
+                if (File.Exists(tempFileList))
+                    File.Delete(tempFileList);
+            }
+        }
+
 
         private void RenumberSceneTabs()
         {
-            int count = 1;
-            foreach (TabItem tabItem in ScenesTabControl.Items)
+            foreach (var tab in ScenesTabControl.Items.OfType<TabItem>())
             {
-                if (tabItem.Header is DockPanel panel && panel.Children.OfType<Label>().FirstOrDefault() is Label label)
+                if (tab.Tag is int sceneIndex && tab.Header is DockPanel headerPanel)
                 {
-                    label.Content = $"Scene {count++}";
+                    var label = headerPanel.Children.OfType<Label>().FirstOrDefault();
+                    if (label != null)
+                        label.Content = $"Scene {sceneIndex}";
                 }
             }
         }
@@ -369,6 +584,23 @@ namespace AI_Movie_Maker
             }
         }
 
+        private void CheckPreviewButtonStatus()
+        {
+            var sceneTabs = ScenesTabControl.Items
+        .OfType<TabItem>()
+        .Where(tab => tab.Tag is int);
+
+            var sceneIndices = sceneTabs
+                .Select(tab => (int)tab.Tag)
+                .ToList();
+
+            int totalScenes = sceneIndices.Count;
+            int completedScenes = sceneIndices.Count(index =>
+                tabHasVideo.TryGetValue(index, out bool hasVideo) && hasVideo);
+
+            PreviewFullVideoButton.IsEnabled = totalScenes > 1 && completedScenes == totalScenes;
+        }
+
         private void ScenesTabControl_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (ScenesTabControl.SelectedItem is TabItem selectedTab &&
@@ -377,6 +609,11 @@ namespace AI_Movie_Maker
             {
                 ScenesTabControl.SelectedIndex = Math.Max(0, ScenesTabControl.Items.Count - 2);
             }
+        }
+
+        private int GetNextSceneIndex()
+        {
+            return nextSceneIndex++;
         }
     }
 }

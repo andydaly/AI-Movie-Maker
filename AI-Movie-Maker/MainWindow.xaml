@@ -33,6 +33,12 @@
 
                 <!-- Generate button -->
                 <Button Content="Generate Scenes" Margin="10,0,0,0" Click="Generate_Click"/>
+
+                <Button x:Name="PreviewFullVideoButton"
+                    Content="Preview Full Video"
+                    Margin="10,0,0,0"
+                    IsEnabled="False"
+                    Click="PreviewFullVideoButton_Click"/>
             </StackPanel>
 
             <!-- Output Resolution Panel -->
